@@ -45,7 +45,7 @@
             @blur="onBlur" 
             @contextmenu.stop="onInputContextMenu"
             :suffix="suffixSlot" 
-            :allow-clear="true" 
+            :allow-clear="false" 
             :placeholder="placeholder" 
         >
             <template #addonBefore>
