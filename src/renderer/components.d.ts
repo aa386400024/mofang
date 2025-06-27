@@ -9,16 +9,16 @@ export {}
 declare module 'vue' {
   export interface GlobalComponents {
     2: typeof import('./src/components/Layout/Header copy 2.vue')['default']
+    AButton: typeof import('ant-design-vue/es')['Button']
     AddressBar: typeof import('./src/components/Layout/AddressBar.vue')['default']
     AInput: typeof import('ant-design-vue/es')['Input']
     ATabPane: typeof import('ant-design-vue/es')['TabPane']
     ATabs: typeof import('ant-design-vue/es')['Tabs']
     copy: typeof import('./src/components/Layout/Header copy.vue')['default']
     Header: typeof import('./src/components/Layout/Header.vue')['default']
-    'Header copy': typeof import('./src/components/Layout/Header copy.vue')['default']
-    'Header copy 2': typeof import('./src/components/Layout/Header copy 2.vue')['default']
     Layout: typeof import('./src/components/Layout/Layout.vue')['default']
     MoreTabs: typeof import('./src/components/pro-ui/pro-tabs/MoreTabs.vue')['default']
+    ProContextMenu: typeof import('./src/components/pro-ui/pro-context-menu/ProContextMenu.vue')['default']
     ProTabs: typeof import('./src/components/pro-ui/pro-tabs/ProTabs.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']

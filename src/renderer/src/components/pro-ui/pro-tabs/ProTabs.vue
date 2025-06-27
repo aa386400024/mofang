@@ -2,13 +2,17 @@
     <div class="protabs-bar flex items-center h-10 w-full select-none bg-[#e5e5e5] border-b-0"
         style="-webkit-app-region: drag;">
         <!-- 首页 Tab 单独渲染 -->
-        <div v-if="showHome" class="ant-tabs-tab custom-home-tab no-drag"
+        <div 
+            v-if="showHome" 
+            class="ant-tabs-tab custom-home-tab no-drag"
             :class="{ 'ant-tabs-tab-active': modelValue === 'home' }"
-            :style="{ width: tabItemWidth + 'px', minWidth: tabItemWidth + 'px' }" tabindex="0"
-            @click="() => onTabClick('home')">
+            :style="{ width: tabItemWidth + 'px', minWidth: tabItemWidth + 'px' }" 
+            tabindex="0"
+            @click="() => onTabClick('home')"
+        >
             <slot name="home">
-                <span class="flex items-center ant-tabs-tab-btn">
-                    <HomeFilled class="mr-2" style="font-size:13px;" />
+                <span class="flex items-center gap-2 ant-tabs-tab-btn">
+                    <HomeFilled style="font-size:13px;" />
                     首页
                 </span>
             </slot>
@@ -18,28 +22,46 @@
         <div class="flex items-center flex-1 min-w-0 h-full relative" ref="tabListRef">
             <div class="flex items-center w-full h-full overflow-hidden" ref="tabBarRef">
                 <template v-for="(tab, idx) in visibleTabs" :key="tab.key">
-                    <div class="ant-tabs-tab flex items-center h-full px-0 bg-[#e5e5e5] max-w-50 min-w-12 text-xs relative no-drag"
+                    <div 
+                        class="ant-tabs-tab flex items-center h-full px-0 bg-[#e5e5e5] max-w-50 min-w-12 text-xs relative no-drag"
                         :class="{
                             'ant-tabs-tab-active': modelValue === tab.key,
                             'cursor-not-allowed no-drag-tab': tab.key === 'home',
                             'dragged': dragging && dragIdx === idx
-                        }" tabindex="0" @click="() => onTabClick(tab.key)" :data-key="tab.key"
-                        :style="{ width: tabItemWidth + 'px' }">
+                        }" 
+                        tabindex="0" 
+                        @click="() => onTabClick(tab.key)" 
+                        :data-key="tab.key"
+                        :style="{ width: tabItemWidth + 'px' }"
+                    >
                         <span class="flex items-center ant-tabs-tab-btn">
                             <component v-if="tab.icon" :is="tab.icon" class="tab-icon" />
                             {{ tab.title }}
                         </span>
-                        <span v-if="tab.closable" class="ant-tabs-tab-remove" @click.stop="() => onTabClose(tab, idx)">
+                        <span 
+                            v-if="tab.closable" 
+                            class="ant-tabs-tab-remove" 
+                            @click.stop="() => onTabClose(tab, idx)"
+                        >
                             <CloseOutlined />
                         </span>
                     </div>
                 </template>
-                <MoreTabs v-if="moreTabs.length" :tabs="moreTabs" :model-value="modelValue" @select="onMoreTabSelect"
+                <MoreTabs 
+                    v-if="moreTabs.length" 
+                    :tabs="moreTabs" 
+                    :model-value="modelValue" 
+                    @select="onMoreTabSelect"
                     @close="onMoreTabClose"
-                    :style="{ width: MORE_BTN_WIDTH + 'px', minWidth: MORE_BTN_WIDTH + 'px' }" />
+                    :style="{ width: MORE_BTN_WIDTH + 'px', minWidth: MORE_BTN_WIDTH + 'px' }" 
+                />
                 <!-- ＋号 -->
-                <div v-if="!hideAdd" class="ant-tabs-nav-add flex items-center justify-center h-full no-drag"
-                    :style="{ width: ADD_BTN_WIDTH + 'px', minWidth: ADD_BTN_WIDTH + 'px' }" @click="onAddTab">
+                <div 
+                    v-if="!hideAdd" 
+                    class="ant-tabs-nav-add flex items-center justify-center h-full no-drag"
+                    :style="{ width: ADD_BTN_WIDTH + 'px', minWidth: ADD_BTN_WIDTH + 'px' }" 
+                    @click="onAddTab"
+                >
                     <PlusOutlined />
                 </div>
             </div>
