@@ -39,7 +39,7 @@
             v-model:value="inputValue" 
             spellcheck="false" 
             class="flex-1 ml-w-0"
-            bordered="true"
+            :bordered="true"
             @pressEnter="onPressEnter" 
             @focus="onFocus" 
             @blur="onBlur" 
