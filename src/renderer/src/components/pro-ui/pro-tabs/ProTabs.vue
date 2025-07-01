@@ -33,6 +33,7 @@
                         @click="() => onTabClick(tab.key)" 
                         :data-key="tab.key"
                         :style="{ width: tabItemWidth + 'px' }"
+                        @contextmenu.stop.prevent="onTabContextMenu(tab, idx, $event)"
                     >
                         <span class="flex items-center ant-tabs-tab-btn">
                             <component v-if="tab.icon" :is="tab.icon" class="tab-icon" />
@@ -182,7 +183,18 @@ const recomputeTabs = () => {
     }
 }
 
-
+const onTabContextMenu = (tab, idx, ev) => {
+    ev.preventDefault()
+    ev.stopPropagation()
+    // 发送“tab右键菜单”事件，包括tab信息和鼠标坐标
+    window.electron?.ipcRenderer?.invoke('show-tab-context-menu', {
+        key: tab.key,
+        index: idx,
+        // ...其余你需要的信息
+        x: ev.x,
+        y: ev.y
+    })
+}
 
 
 const onMoreTabSelect = (key: string) => {

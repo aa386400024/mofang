@@ -4,7 +4,7 @@
             <ProTabs :tabs="displayTabs" :model-value="activeKey" :hideAdd="hideAdd" :showHome="true"
                 @tab-add="onTabAdd" @tab-close="onTabClose" @tab-dragend="onTabDrag" @update:modelValue="onTabChange" />
         </div>
-        <div class="flex items-center gap-2 ml-2 no-drag">
+        <div class="flex items-center gap-2 ml-2 no-drag" v-no-contextmenu>
             <WinBtn icon="minus" @click="windowControl('min')" />
             <WinBtn :icon="isMaximized ? 'restore' : 'square'" @click="windowControl('max')" />
             <WinBtn icon="close" @click="windowControl('close')" />
@@ -13,7 +13,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, onMounted, watch } from 'vue'
+import { computed, ref, onMounted, watch, onBeforeUnmount } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useTabsStore } from '@renderer/store/tabs'
 import { ProTabs } from '../pro-ui'
@@ -98,10 +98,88 @@ watch(
     { immediate: true }
 )
 
+/**
+ * 处理标签菜单操作
+ * @param {any} _event - 事件对象
+ * @param {any} actionInfo - 操作信息，包含操作类型和相关标签信息
+ */
+const handleTabMenuAction = (_event: any, actionInfo: any) => {
+    switch (actionInfo.type) {
+        case 'close':
+            // 关闭当前标签
+            tabsStore.closeTab(actionInfo.tab.key)
+            break
+
+        case 'closeRight': {
+            // 关闭右侧所有tab
+            const idx = tabsStore.tabs.findIndex(t => t.key === actionInfo.tab.key)
+            if (idx !== -1) {
+                // 只保留idx及其左边
+                const toBeClosed = tabsStore.tabs.slice(idx + 1).map(t => t.key)
+                toBeClosed.forEach(k => tabsStore.closeTab(k))
+            }
+            break
+        }
+
+        case 'closeOthers': {
+            // 关闭除自己以外所有tab
+            const toBeClosed = tabsStore.tabs.filter(t => t.key !== actionInfo.tab.key).map(t => t.key)
+            toBeClosed.forEach(k => tabsStore.closeTab(k))
+            break
+        }
+
+        case 'reload':
+            // 除非你tab有reload逻辑，否则通常需要emit到tab内容组件去做
+            // 可存储reloadKey等强制刷新内容
+            // 或用事件上抛（这里举例，不实现具体业务）
+            break
+
+        case 'copy':
+            // 复制tab标题或URL
+            if (window.api?.clipboard && actionInfo.tab) {
+                window.api.clipboard.writeText(actionInfo.tab.title + ' ' + actionInfo.tab.path)
+            }
+            break
+
+        case 'pin':
+            // 你可以给tab添加pinned属性，或者自行实现
+            // tabsStore.pinTab(actionInfo.tab.key)
+            break
+
+        case 'newRight':
+            // 在右侧新建tab
+            {
+                const idx = tabsStore.tabs.findIndex(t => t.key === actionInfo.tab.key)
+                const newTabObj = {
+                    path: '/ai-chat',
+                    title: '新标签页'
+                }
+                // 插入到指定位置的右侧
+                const oldLen = tabsStore.tabs.length
+                tabsStore.openTab(newTabObj)
+                // 重新排列新tab在右侧
+                const lastTab = tabsStore.tabs.pop()
+                if (lastTab && idx !== -1) {
+                    tabsStore.tabs.splice(idx + 1, 0, lastTab)
+                    tabsStore.activeKey = lastTab.key
+                }
+            }
+            break
+        default:
+            // 其它自定义
+            break
+    }
+}
+
 onMounted(() => {
+    window.electron?.ipcRenderer?.on('tab-menu-action', handleTabMenuAction)
     window.api?.onMaximize?.(() => (isMaximized.value = true))
     window.api?.onUnmaximize?.(() => (isMaximized.value = false))
     window.api?.isMaximized?.().then(res => (isMaximized.value = !!res))
+})
+
+onBeforeUnmount(() => {
+    (window.electron?.ipcRenderer as any)?.off('tab-menu-action', handleTabMenuAction)
 })
 </script>
 
