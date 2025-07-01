@@ -61,8 +61,6 @@ function createWindow(): void {
         const menu = new Menu()
         // 只在页面空白区域弹出浏览器风格菜单
         if (!isEditable) {
-
-
             // 返回
             menu.append(new MenuItem({
                 label: '返回',
@@ -181,7 +179,6 @@ function createWindow(): void {
             }));
             menu.popup({ window: mainWindow! });
             return; // 阻止系统原生菜单
-
         }
     })
 
