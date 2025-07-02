@@ -1,4 +1,18 @@
 <template>
+    <!-- 弹窗 -->
+    <ProPopup
+        :visible="userMenuVisible"
+        :anchor-el="dropdownRef"
+        placement="bottom-end"
+        :offset-x="0"
+        :offset-y="6"
+        width="300px"
+        radius="rounded-md"
+        @close="closeUserMenu"
+    >
+        <div style="color: red;">asdassda</div>
+    <!-- <ProUserMenu @menu-action="onUserMenuAction" @close="closeUserMenu"/> -->
+    </ProPopup>
     <header class="flex items-center h-10 w-full select-none border-b-0 bg-[#e5e5e5]" style="-webkit-app-region: drag">
         <div class="flex items-center h-full flex-1 min-w-0 overflow-hidden pr-16">
             <ProTabs 
@@ -16,7 +30,7 @@
             <div
                 ref="dropdownRef"
                 class="flex items-center bg-gray-300 rounded-full px-1.5 py-1 h-[30px] cursor-pointer gap-1"
-                @click="handleUserPopup"
+                @click="openUserMenu"
             >
                 <!-- 使用 a-avatar 替换 img -->
                 <a-avatar
@@ -43,7 +57,7 @@
 import { computed, ref, onMounted, watch, onBeforeUnmount } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useTabsStore } from '@renderer/store/tabs'
-import { ProTabs } from '../pro-ui'
+import { ProTabs, ProPopup } from '../pro-ui'
 import { WinBtn } from './index'
 import { PlusOutlined, CaretUpFilled, CaretDownFilled } from '@ant-design/icons-vue'
 import { useRouter } from 'vue-router'
@@ -65,16 +79,15 @@ const aiTab = computed(() => ({
 }))
 
 const userPopupOpen = ref(false)
+const userMenuVisible = ref(false)
 const dropdownRef = ref<HTMLElement|null>(null)
 
-const handleUserPopup = (ev) => {
-    const rect = ev.currentTarget.getBoundingClientRect()
-    const x = window.screenX + rect.left
-    const y = window.screenY + rect.top + rect.height
-    window.electron?.ipcRenderer?.invoke('show-user-popup', { x, y })
-    userPopupOpen.value = true
+const openUserMenu = (e: MouseEvent) => {
+    userMenuVisible.value = true
 }
-const onUserPopupClosed = () => userPopupOpen.value = false
+const closeUserMenu = () => {
+    userMenuVisible.value = false
+}
 
 const displayTabs = computed(() => (
     showAiTab.value ? [aiTab.value] : tabs.value
@@ -217,12 +230,10 @@ onMounted(() => {
     window.api?.onMaximize?.(() => (isMaximized.value = true))
     window.api?.onUnmaximize?.(() => (isMaximized.value = false))
     window.api?.isMaximized?.().then(res => (isMaximized.value = !!res))
-    window.electron?.ipcRenderer?.on('user-popup-closed', onUserPopupClosed)
 })
 
 onBeforeUnmount(() => {
     (window.electron?.ipcRenderer as any)?.off('tab-menu-action', handleTabMenuAction)
-    (window.electron?.ipcRenderer as any)?.off('user-popup-closed', onUserPopupClosed)
 })
 </script>
 

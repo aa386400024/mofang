@@ -20,6 +20,7 @@ declare module 'vue' {
     Layout: typeof import('./src/components/Layout/Layout.vue')['default']
     MoreTabs: typeof import('./src/components/pro-ui/pro-tabs/MoreTabs.vue')['default']
     ProContextMenu: typeof import('./src/components/pro-ui/pro-context-menu/ProContextMenu.vue')['default']
+    ProPopup: typeof import('./src/components/pro-ui/pro-popup/ProPopup.vue')['default']
     ProTabs: typeof import('./src/components/pro-ui/pro-tabs/ProTabs.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
