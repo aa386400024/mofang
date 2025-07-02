@@ -1,10 +1,37 @@
 <template>
     <header class="flex items-center h-10 w-full select-none border-b-0 bg-[#e5e5e5]" style="-webkit-app-region: drag">
         <div class="flex items-center h-full flex-1 min-w-0 overflow-hidden pr-16">
-            <ProTabs :tabs="displayTabs" :model-value="activeKey" :hideAdd="hideAdd" :showHome="true"
-                @tab-add="onTabAdd" @tab-close="onTabClose" @tab-dragend="onTabDrag" @update:modelValue="onTabChange" />
+            <ProTabs 
+                :tabs="displayTabs" 
+                :model-value="activeKey" 
+                :hideAdd="hideAdd" 
+                :showHome="true"
+                @tab-add="onTabAdd" 
+                @tab-close="onTabClose" 
+                @tab-dragend="onTabDrag" 
+                @update:modelValue="onTabChange"
+            />
         </div>
         <div class="flex items-center gap-2 ml-2 no-drag" v-no-contextmenu>
+            <div
+                ref="dropdownRef"
+                class="flex items-center bg-gray-300 rounded-full px-1.5 py-1 h-[30px] cursor-pointer gap-1"
+                @click="handleUserPopup"
+            >
+                <!-- 使用 a-avatar 替换 img -->
+                <a-avatar
+                    :size="20"
+                    :src="avatar"
+                    class="!bg-white"
+                    :style="{ minWidth: '20px' }"
+                    />
+                <!-- 箭头旋转动画 -->
+                <CaretDownFilled
+                    class="text-gray-600 arrow-transition"
+                    style="font-size: 12px;"
+                    :class="{ open: userPopupOpen }"
+                />
+            </div>
             <WinBtn icon="minus" @click="windowControl('min')" />
             <WinBtn :icon="isMaximized ? 'restore' : 'square'" @click="windowControl('max')" />
             <WinBtn icon="close" @click="windowControl('close')" />
@@ -18,8 +45,9 @@ import { storeToRefs } from 'pinia'
 import { useTabsStore } from '@renderer/store/tabs'
 import { ProTabs } from '../pro-ui'
 import { WinBtn } from './index'
-import { PlusOutlined } from '@ant-design/icons-vue'
+import { PlusOutlined, CaretUpFilled, CaretDownFilled } from '@ant-design/icons-vue'
 import { useRouter } from 'vue-router'
+import avatar from '@renderer/assets/img/avatar.png'
  
 const tabsStore = useTabsStore()
 const router = useRouter()
@@ -35,6 +63,19 @@ const aiTab = computed(() => ({
     closable: false,                // 入口态不可关闭
     cacheKey: 'ai-chat'
 }))
+
+const userPopupOpen = ref(false)
+const dropdownRef = ref<HTMLElement|null>(null)
+
+const handleUserPopup = (ev) => {
+    const rect = ev.currentTarget.getBoundingClientRect()
+    const x = window.screenX + rect.left
+    const y = window.screenY + rect.top + rect.height
+    window.electron?.ipcRenderer?.invoke('show-user-popup', { x, y })
+    userPopupOpen.value = true
+}
+const onUserPopupClosed = () => userPopupOpen.value = false
+
 const displayTabs = computed(() => (
     showAiTab.value ? [aiTab.value] : tabs.value
 ))
@@ -176,15 +217,27 @@ onMounted(() => {
     window.api?.onMaximize?.(() => (isMaximized.value = true))
     window.api?.onUnmaximize?.(() => (isMaximized.value = false))
     window.api?.isMaximized?.().then(res => (isMaximized.value = !!res))
+    window.electron?.ipcRenderer?.on('user-popup-closed', onUserPopupClosed)
 })
 
 onBeforeUnmount(() => {
     (window.electron?.ipcRenderer as any)?.off('tab-menu-action', handleTabMenuAction)
+    (window.electron?.ipcRenderer as any)?.off('user-popup-closed', onUserPopupClosed)
 })
 </script>
 
 <style scoped lang="scss">
 .no-drag {
     -webkit-app-region: no-drag;
+}
+
+.arrow-transition {
+    transition: transform 0.3s cubic-bezier(.4, 0, .2, 1);
+    transform: rotate(0deg);
+    transform-origin: center center;
+}
+
+.arrow-transition.open {
+    transform: rotate(180deg);
 }
 </style>
