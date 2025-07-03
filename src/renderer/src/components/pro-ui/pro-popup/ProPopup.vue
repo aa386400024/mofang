@@ -1,31 +1,32 @@
 <template>
     <Teleport to="body">
         <!-- 主弹窗：防止首次出现时位置异常的穿梭，用 opacity 先隐藏 -->
-        <div 
-            v-show="visible" 
-            ref="popupRef" 
+        <div
+            v-show="visible"
+            ref="popupRef"
             :class="[
-                'bg-white shadow-[0_8px_32px_rgba(0,0,0,0.42)] min-w-[200px] max-w-[96vw] overflow-hidden outline-none p-4 text-[15px] select-none transition-shadow duration-200',
-                props.radius || 'rounded-2xl', 
+                'bg-white shadow-[0_4px_16px_rgba(0,0,0,0.42)] min-w-[200px] max-w-[96vw] overflow-hidden outline-none px-0 py-2 text-[15px] select-none transition-shadow duration-200',
+                props.radius || 'rounded-2xl',
                 popupReady ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
-            ]" 
-            :style="popupStyle" 
-            tabindex="0" 
-            @keydown.esc="emitClose" 
+            ]"
+            :style="popupStyle"
+            tabindex="0"
+            @keydown.esc="emitClose"
             @mousedown.stop
         >
-            <slot />
+            <slot v-bind="attrs" v-on="attrs" />
         </div>
-        <div 
-            v-if="visible && mask" 
-            class="fixed z-[9998] inset-0 bg-transparent" 
-            @click="emitClose" 
+        <div
+            v-if="visible && mask"
+            class="fixed z-[9998] inset-0 bg-transparent"
+            @click="emitClose"
         />
     </Teleport>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
+import { ref, onMounted, onBeforeUnmount, watch, nextTick, useAttrs } from 'vue'
+import type { CSSProperties } from 'vue'
 
 type AnchorType = HTMLElement | null
 const props = defineProps<{
@@ -40,10 +41,13 @@ const props = defineProps<{
     zIndex?: number
     radius?: string
 }>()
-const emit = defineEmits(['close'])
+const emit = defineEmits(['close', 'select'])
 
+const attrs = useAttrs()
 const popupRef = ref<HTMLElement | null>(null)
-import type { CSSProperties } from 'vue'
+
+defineExpose({ popupRef })
+
 const popupStyle = ref<CSSProperties>({})
 const popupReady = ref(false)
 
@@ -52,7 +56,8 @@ const updatePosition = () => {
     if (!props.anchorEl || !popupRef.value) return
     const rect = props.anchorEl.getBoundingClientRect()
     const pRect = popupRef.value.getBoundingClientRect()
-    let left = 0, top = 0
+    let left = 0,
+        top = 0
     const offsetX = props.offsetX ?? 0
     const offsetY = props.offsetY ?? 0
     switch (props.placement) {
@@ -93,8 +98,11 @@ const updatePosition = () => {
         left: `${left}px`,
         top: `${top}px`,
         width: typeof props.width === 'number' ? `${props.width}px` : props.width || undefined,
-        maxWidth: typeof props.maxWidth === 'number' ? `${props.maxWidth}px` : props.maxWidth || undefined,
-        zIndex: String(props.zIndex ?? 9999),
+        maxWidth:
+            typeof props.maxWidth === 'number'
+                ? `${props.maxWidth}px`
+                : props.maxWidth || undefined,
+        zIndex: String(props.zIndex ?? 9999)
     }
 }
 
@@ -108,7 +116,7 @@ const emitClose = () => emit('close')
 // 【变化处】在visible变true时，确保弹窗已渲染宽高 → 定位 → 再显示
 watch(
     () => props.visible,
-    v => {
+    (v) => {
         if (v) {
             popupReady.value = false
             nextTick(() => {
@@ -123,7 +131,10 @@ watch(
     }
 )
 // slot锚点变动也要重定位
-watch(() => props.anchorEl, () => nextTick(updatePosition))
+watch(
+    () => props.anchorEl,
+    () => nextTick(updatePosition)
+)
 
 onMounted(() => {
     nextTick(updatePosition)
