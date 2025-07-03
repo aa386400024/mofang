@@ -1,20 +1,51 @@
 <template>
+    <!-- 弹窗 -->
+    <ProPopup
+        :visible="userMenuVisible"
+        :anchor-el="dropdownRef"
+        placement="bottom-end"
+        :offset-x="0"
+        :offset-y="6"
+        width="300px"
+        radius="rounded-md"
+        @close="closeUserMenu"
+    >
+        <div style="color: red;">asdassda</div>
+    <!-- <ProUserMenu @menu-action="onUserMenuAction" @close="closeUserMenu"/> -->
+    </ProPopup>
     <header class="flex items-center h-10 w-full select-none border-b-0 bg-[#e5e5e5]" style="-webkit-app-region: drag">
-        <!-- Tabs部分 -->
         <div class="flex items-center h-full flex-1 min-w-0 overflow-hidden pr-16">
             <ProTabs 
-                :tabs="tabs" 
-                v-model="activeTab" 
+                :tabs="displayTabs" 
+                :model-value="activeKey" 
                 :hideAdd="hideAdd" 
-                :showHome="showHome" 
-                @tab-add="addTab"
-                @tab-close="removeTab" 
+                :showHome="true"
+                @tab-add="onTabAdd" 
+                @tab-close="onTabClose" 
                 @tab-dragend="onTabDrag" 
-                @update:modelValue="handleTabChange" 
+                @update:modelValue="onTabChange"
             />
         </div>
-        <!-- 右侧窗口按钮 -->
-        <div class="flex items-center gap-2 ml-2 no-drag">
+        <div class="flex items-center gap-2 ml-2 no-drag" v-no-contextmenu>
+            <div
+                ref="dropdownRef"
+                class="flex items-center bg-gray-300 rounded-full px-1.5 py-1 h-[30px] cursor-pointer gap-1"
+                @click="openUserMenu"
+            >
+                <!-- 使用 a-avatar 替换 img -->
+                <a-avatar
+                    :size="20"
+                    :src="avatar"
+                    class="!bg-white"
+                    :style="{ minWidth: '20px' }"
+                    />
+                <!-- 箭头旋转动画 -->
+                <CaretDownFilled
+                    class="text-gray-600 arrow-transition"
+                    style="font-size: 12px;"
+                    :class="{ open: userMenuVisible }"
+                />
+            </div>
             <WinBtn icon="minus" @click="windowControl('min')" />
             <WinBtn :icon="isMaximized ? 'restore' : 'square'" @click="windowControl('max')" />
             <WinBtn icon="close" @click="windowControl('close')" />
@@ -23,99 +54,200 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { computed, ref, onMounted, watch, onBeforeUnmount } from 'vue'
+import { storeToRefs } from 'pinia'
+import { useTabsStore } from '@renderer/store/tabs'
+import { ProTabs, ProPopup } from '../pro-ui'
 import { WinBtn } from './index'
-import { ProTabs, type ProTabItem } from '../pro-ui'
-import { HomeFilled, FileOutlined, PlusOutlined } from '@ant-design/icons-vue'
+import { PlusOutlined, CaretUpFilled, CaretDownFilled } from '@ant-design/icons-vue'
+import { useRouter } from 'vue-router'
+import avatar from '@renderer/assets/img/avatar.png'
+ 
+const tabsStore = useTabsStore()
+const router = useRouter()
+const { tabs, activeKey } = storeToRefs(tabsStore)
 
-const AI_TAB: ProTabItem = {
-    title: 'AI 搜索或打开网页', key: 'ai', icon: PlusOutlined, closable: false
+// 是否只剩home（默认home在ProTabs内部写死，不进tabs，只剩ai时tabs.length == 0）
+const showAiTab = computed(() => tabs.value.length === 0)
+const aiTab = computed(() => ({
+    key: 'ai-chat',
+    title: 'AI 搜索或打开网页',
+    path: '/ai-chat',
+    icon: PlusOutlined,
+    closable: false,                // 入口态不可关闭
+    cacheKey: 'ai-chat'
+}))
+
+const userMenuVisible = ref(false)
+const dropdownRef = ref<HTMLElement|null>(null)
+
+const openUserMenu = (e: MouseEvent) => {
+    userMenuVisible.value = true
+}
+const closeUserMenu = () => {
+    userMenuVisible.value = false
 }
 
-function getDetachedTabsFromUrl(): ProTabItem[] | null {
-    // 用 tabs（数组）参数更灵活，有多个时都能带出去
-    try {
-        const m = /detachedTabs=([^&]+)/.exec(window.location.search)
-        if (m) {
-            return JSON.parse(decodeURIComponent(m[1]))
-        }
-    } catch (e) { }
-    return null
-}
+const displayTabs = computed(() => (
+    showAiTab.value ? [aiTab.value] : tabs.value
+))
+// 只剩home和ai入口时隐藏+号
+const hideAdd = computed(() => tabs.value.length === 0)
 
-const detachedTabs = getDetachedTabsFromUrl()
-const isSubWindow = !!detachedTabs
+const onTabAdd = () => tabsStore.openTab({ path: '/ai-chat', title: '新标签页' })
 
-// 拆分窗口的 tabs/activeTab只初始化一次并独立于主窗口，主窗口正常
-const tabs = ref<ProTabItem[]>(
-    isSubWindow
-        ? (detachedTabs || []).filter((tab) => tab.key !== AI_TAB.key)
-        : [{ ...AI_TAB }]
-)
+const onTabClose = (tab) => tabsStore.closeTab(tab.key)
 
-const activeTab = ref(isSubWindow
-    ? ((detachedTabs && detachedTabs[0]?.key) || '')
-    : 'ai'
-)
-
-const showHome = computed(() => !isSubWindow) // 主窗口才显示 home
-const hideAdd = computed(() =>
-    tabs.value.length === 0
-    || (tabs.value.length === 1 && tabs.value[0].key === 'ai')
-)
-
-const handleTabChange = (key: string) => {
-    // 只剩 AI_TAB 时点首页就变成新tab
-    if (key === 'ai' && tabs.value.length === 1 && tabs.value[0].key === 'ai') {
-        const newTab = {
-            title: '新标签页',
-            key: `tab_${Date.now()}`,
-            icon: FileOutlined,
-            closable: true
-        }
-        tabs.value = [newTab]
-        activeTab.value = newTab.key
+const onTabChange = (key) => {
+    // 点击AI入口，生成新tab并激活
+    if (key === 'ai-chat') {
+        tabsStore.openTab({ path: '/ai-chat', title: '新标签页' })
     } else {
-        activeTab.value = key
+        tabsStore.setActive(key)
     }
 }
-const addTab = () => {
-    const newTab = {
-        title: '新标签页', key: `tab_${Date.now()}`, icon: FileOutlined, closable: true
-    }
-    tabs.value.push(newTab)
-    activeTab.value = newTab.key
-}
-const removeTab = (tab: ProTabItem, idx: number) => {
-    tabs.value.splice(idx, 1)
-    if (tabs.value.length === 0) {
-        if (isSubWindow) {
-            window.api?.win?.('close')
-        } else {
-            tabs.value = [{ ...AI_TAB }]
-            activeTab.value = 'ai'
-        }
-    } else if (activeTab.value === tab.key) {
-        activeTab.value = tabs.value[Math.max(idx - 1, 0)].key
-    }
-}
-const onTabDrag = (from, to) => {
-    const moved = tabs.value.splice(from, 1)[0]
-    tabs.value.splice(to, 0, moved)
-}
+
+const onTabDrag = (from, to) => tabsStore.reorderTab(from, to)
+
+const isMaximized = ref(false)
 const windowControl = (action: 'min' | 'max' | 'close') => {
     window.api?.win?.(action)
 }
 
-const isMaximized = ref(false)
+watch(
+    () => tabsStore.activeKey,
+    key => {
+        const tab = tabs.value.find(t => t.key === key);
+        if (tab && tab.path) {
+            // 路由对象需完整，path不能为空
+            const location = {
+                path: tab.path,
+                query: tab.query ?? {},
+                params: tab.params ?? {},
+            };
+            // 防守性，不能有 undefined
+            if (
+                typeof location.path === 'string' &&
+                location.path.trim() !== ''
+            ) {
+                router.replace(location);
+                return;
+            }
+        }
+        // ai-chat 特殊入口
+        if (key === 'ai-chat') {
+            console.log('[tabwatch] 跳转 ai-chat');
+            router.replace('/ai-chat');
+            return;
+        }
+        if (key === 'home') {
+            console.log('[tabwatch] 跳转 home');
+            router.replace('/');
+            return;
+        }
+        // fallback: 不做跳转
+        console.warn('[tabwatch] activeKey未对应任何tab或入口，什么都不跳。', key, tabs.value);
+    },
+    { immediate: true }
+)
+
+/**
+ * 处理标签菜单操作
+ * @param {any} _event - 事件对象
+ * @param {any} actionInfo - 操作信息，包含操作类型和相关标签信息
+ */
+const handleTabMenuAction = (_event: any, actionInfo: any) => {
+    switch (actionInfo.type) {
+        case 'close':
+            // 关闭当前标签
+            tabsStore.closeTab(actionInfo.tab.key)
+            break
+
+        case 'closeRight': {
+            // 关闭右侧所有tab
+            const idx = tabsStore.tabs.findIndex(t => t.key === actionInfo.tab.key)
+            if (idx !== -1) {
+                // 只保留idx及其左边
+                const toBeClosed = tabsStore.tabs.slice(idx + 1).map(t => t.key)
+                toBeClosed.forEach(k => tabsStore.closeTab(k))
+            }
+            break
+        }
+
+        case 'closeOthers': {
+            // 关闭除自己以外所有tab
+            const toBeClosed = tabsStore.tabs.filter(t => t.key !== actionInfo.tab.key).map(t => t.key)
+            toBeClosed.forEach(k => tabsStore.closeTab(k))
+            break
+        }
+
+        case 'reload':
+            // 除非你tab有reload逻辑，否则通常需要emit到tab内容组件去做
+            // 可存储reloadKey等强制刷新内容
+            // 或用事件上抛（这里举例，不实现具体业务）
+            break
+
+        case 'copy':
+            // 复制tab标题或URL
+            if (window.api?.clipboard && actionInfo.tab) {
+                window.api.clipboard.writeText(actionInfo.tab.title + ' ' + actionInfo.tab.path)
+            }
+            break
+
+        case 'pin':
+            // 你可以给tab添加pinned属性，或者自行实现
+            // tabsStore.pinTab(actionInfo.tab.key)
+            break
+
+        case 'newRight':
+            // 在右侧新建tab
+            {
+                const idx = tabsStore.tabs.findIndex(t => t.key === actionInfo.tab.key)
+                const newTabObj = {
+                    path: '/ai-chat',
+                    title: '新标签页'
+                }
+                // 插入到指定位置的右侧
+                const oldLen = tabsStore.tabs.length
+                tabsStore.openTab(newTabObj)
+                // 重新排列新tab在右侧
+                const lastTab = tabsStore.tabs.pop()
+                if (lastTab && idx !== -1) {
+                    tabsStore.tabs.splice(idx + 1, 0, lastTab)
+                    tabsStore.activeKey = lastTab.key
+                }
+            }
+            break
+        default:
+            // 其它自定义
+            break
+    }
+}
+
 onMounted(() => {
+    window.electron?.ipcRenderer?.on('tab-menu-action', handleTabMenuAction)
     window.api?.onMaximize?.(() => (isMaximized.value = true))
     window.api?.onUnmaximize?.(() => (isMaximized.value = false))
     window.api?.isMaximized?.().then(res => (isMaximized.value = !!res))
 })
+
+onBeforeUnmount(() => {
+    (window.electron?.ipcRenderer as any)?.off('tab-menu-action', handleTabMenuAction)
+})
 </script>
+
 <style scoped lang="scss">
 .no-drag {
     -webkit-app-region: no-drag;
+}
+
+.arrow-transition {
+    transition: transform 0.3s cubic-bezier(.4, 0, .2, 1);
+    transform: rotate(0deg);
+    transform-origin: center center;
+}
+
+.arrow-transition.open {
+    transform: rotate(180deg);
 }
 </style>

@@ -2,13 +2,17 @@
     <div class="protabs-bar flex items-center h-10 w-full select-none bg-[#e5e5e5] border-b-0"
         style="-webkit-app-region: drag;">
         <!-- 首页 Tab 单独渲染 -->
-        <div v-if="showHome" class="ant-tabs-tab custom-home-tab no-drag"
+        <div 
+            v-if="showHome" 
+            class="ant-tabs-tab custom-home-tab no-drag"
             :class="{ 'ant-tabs-tab-active': modelValue === 'home' }"
-            :style="{ width: tabItemWidth + 'px', minWidth: tabItemWidth + 'px' }" tabindex="0"
-            @click="() => onTabClick('home')">
+            :style="{ width: tabItemWidth + 'px', minWidth: tabItemWidth + 'px' }" 
+            tabindex="0"
+            @click="() => onTabClick('home')"
+        >
             <slot name="home">
-                <span class="flex items-center ant-tabs-tab-btn">
-                    <HomeFilled class="mr-2" style="font-size:13px;" />
+                <span class="flex items-center gap-2 ant-tabs-tab-btn">
+                    <HomeFilled style="font-size:13px;" />
                     首页
                 </span>
             </slot>
@@ -18,28 +22,47 @@
         <div class="flex items-center flex-1 min-w-0 h-full relative" ref="tabListRef">
             <div class="flex items-center w-full h-full overflow-hidden" ref="tabBarRef">
                 <template v-for="(tab, idx) in visibleTabs" :key="tab.key">
-                    <div class="ant-tabs-tab flex items-center h-full px-0 bg-[#e5e5e5] max-w-50 min-w-12 text-xs relative no-drag"
+                    <div 
+                        class="ant-tabs-tab flex items-center h-full px-0 bg-[#e5e5e5] max-w-50 min-w-12 text-xs relative no-drag"
                         :class="{
                             'ant-tabs-tab-active': modelValue === tab.key,
                             'cursor-not-allowed no-drag-tab': tab.key === 'home',
                             'dragged': dragging && dragIdx === idx
-                        }" tabindex="0" @click="() => onTabClick(tab.key)" :data-key="tab.key"
-                        :style="{ width: tabItemWidth + 'px' }">
+                        }" 
+                        tabindex="0" 
+                        @click="() => onTabClick(tab.key)" 
+                        :data-key="tab.key"
+                        :style="{ width: tabItemWidth + 'px' }"
+                        @contextmenu.stop.prevent="onTabContextMenu(tab, idx, $event)"
+                    >
                         <span class="flex items-center ant-tabs-tab-btn">
                             <component v-if="tab.icon" :is="tab.icon" class="tab-icon" />
                             {{ tab.title }}
                         </span>
-                        <span v-if="tab.closable" class="ant-tabs-tab-remove" @click.stop="() => onTabClose(tab, idx)">
+                        <span 
+                            v-if="tab.closable" 
+                            class="ant-tabs-tab-remove" 
+                            @click.stop="() => onTabClose(tab, idx)"
+                        >
                             <CloseOutlined />
                         </span>
                     </div>
                 </template>
-                <MoreTabs v-if="moreTabs.length" :tabs="moreTabs" :model-value="modelValue" @select="onMoreTabSelect"
+                <MoreTabs 
+                    v-if="moreTabs.length" 
+                    :tabs="moreTabs" 
+                    :model-value="modelValue" 
+                    @select="onMoreTabSelect"
                     @close="onMoreTabClose"
-                    :style="{ width: MORE_BTN_WIDTH + 'px', minWidth: MORE_BTN_WIDTH + 'px' }" />
+                    :style="{ width: MORE_BTN_WIDTH + 'px', minWidth: MORE_BTN_WIDTH + 'px' }" 
+                />
                 <!-- ＋号 -->
-                <div v-if="!hideAdd" class="ant-tabs-nav-add flex items-center justify-center h-full no-drag"
-                    :style="{ width: ADD_BTN_WIDTH + 'px', minWidth: ADD_BTN_WIDTH + 'px' }" @click="onAddTab">
+                <div 
+                    v-if="!hideAdd" 
+                    class="ant-tabs-nav-add flex items-center justify-center h-full no-drag"
+                    :style="{ width: ADD_BTN_WIDTH + 'px', minWidth: ADD_BTN_WIDTH + 'px' }" 
+                    @click="onAddTab"
+                >
                     <PlusOutlined />
                 </div>
             </div>
@@ -88,41 +111,92 @@ const MORE_BTN_WIDTH = 42
 const ADD_BTN_WIDTH = 42
 
 const tabItemWidth = ref(MAX_TAB_WIDTH)
+const shallowEqualArr = (a1: ProTabItem[], a2: ProTabItem[]) =>
+    a1.length === a2.length && a1.every((v, i) => v && a2[i] && v.key === a2[i].key)
 const recomputeTabs = () => {
     const container = tabBarRef.value
     if (!container) return
     const totalWidth = container.offsetWidth
     const tabCount = props.tabs.length
-    const CONTROL_BLOCK_WIDTH = ADD_BTN_WIDTH + (tabCount > 0 ? MORE_BTN_WIDTH : 0)
-    // 1. 能够所有tab最大宽度
-    if (MAX_TAB_WIDTH * tabCount + CONTROL_BLOCK_WIDTH <= totalWidth) {
-        visibleTabs.value = props.tabs.slice()
+    const CONTROL_BLOCK_WIDTH = (props.hideAdd ? 0 : ADD_BTN_WIDTH) + ((tabCount > 0 && tabCount * MIN_TAB_WIDTH + ADD_BTN_WIDTH > totalWidth) ? MORE_BTN_WIDTH : 0)
+
+    // 能放得下所有tab，且每个tab宽未超MAX
+    if (tabCount === 0) {
+        visibleTabs.value = []
         moreTabs.value = []
         tabItemWidth.value = MAX_TAB_WIDTH
-    } else {
-        // 2. 只要空间不够所有tab最小宽，visibleTabs数锁死
-        let canShow = Math.floor((totalWidth - CONTROL_BLOCK_WIDTH) / MIN_TAB_WIDTH)
-        if (canShow < 1) canShow = 1
-        let _visible = props.tabs.slice(0, canShow)
-        let _more = props.tabs.slice(canShow)
-        tabItemWidth.value = MIN_TAB_WIDTH
-        // ======== 关键patch：活跃tab若在more里，挪进可见，visibleTabs的最左侧被挤进more ========
-        const activeIdx = props.tabs.findIndex(t => t.key === props.modelValue)
-        // visible区最后一位的下标
-        if (activeIdx >= canShow) {
-            // 把visible区第一个暗地里挪进more（它变成more的第一个）
-            const moved = _visible.shift()!
-            _more.unshift(moved)
-            // 把activeTab放进visible最后一位
-            const activeTabObj = _more.splice(activeIdx - canShow + 1, 1)[0]
-            _visible.push(activeTabObj)
-        }
+        return
+    }
 
-        // ======== end patch ========
+    // 1. 最大能平均分下来的每个tab宽度
+    let avgWidth = Math.floor((totalWidth - CONTROL_BLOCK_WIDTH) / tabCount)
+    if (avgWidth >= MAX_TAB_WIDTH) {
+        // 全部MAX宽，剩余空间不管
+        if (
+            !shallowEqualArr(visibleTabs.value, props.tabs) ||
+            moreTabs.value.length !== 0 ||
+            tabItemWidth.value !== MAX_TAB_WIDTH
+        ) {
+            visibleTabs.value = props.tabs.slice()
+            moreTabs.value = []
+            tabItemWidth.value = MAX_TAB_WIDTH
+        }
+        return
+    }
+
+    // 2. avgWidth在MIN和MAX之间，全部tab都平均撑满
+    if (avgWidth >= MIN_TAB_WIDTH) {
+        if (
+            !shallowEqualArr(visibleTabs.value, props.tabs) ||
+            moreTabs.value.length !== 0 ||
+            tabItemWidth.value !== avgWidth
+        ) {
+            visibleTabs.value = props.tabs.slice()
+            moreTabs.value = []
+            tabItemWidth.value = avgWidth
+        }
+        return
+    }
+
+    // 3. 放不下，部分tab进more；visible用MIN宽
+    // 能展示多少个
+    let canShow = Math.floor((totalWidth - CONTROL_BLOCK_WIDTH) / MIN_TAB_WIDTH)
+    if (canShow < 1) canShow = 1
+    let _visible = props.tabs.slice(0, canShow)
+    let _more = props.tabs.slice(canShow)
+    // patch逻辑：活跃选项卡在more里要拉进visible最后
+    const activeIdx = props.tabs.findIndex(t => t.key === props.modelValue)
+    if (activeIdx >= canShow) {
+        const moved = _visible.shift()
+        if (moved) _more.unshift(moved)
+        const activeTabObj = _more.splice(activeIdx - canShow + 1, 1)[0]
+        if (activeTabObj) _visible.push(activeTabObj)
+    }
+    if (
+        !shallowEqualArr(visibleTabs.value, _visible) ||
+        !shallowEqualArr(moreTabs.value, _more) ||
+        tabItemWidth.value !== MIN_TAB_WIDTH
+    ) {
         visibleTabs.value = _visible
         moreTabs.value = _more
+        tabItemWidth.value = MIN_TAB_WIDTH
     }
 }
+
+const onTabContextMenu = (tab, idx, ev) => {
+    ev.preventDefault()
+    ev.stopPropagation()
+    // 发送“tab右键菜单”事件，包括tab信息和鼠标坐标
+    window.electron?.ipcRenderer?.invoke('show-tab-context-menu', {
+        key: tab.key,
+        index: idx,
+        // ...其余你需要的信息
+        x: ev.x,
+        y: ev.y
+    })
+}
+
+
 const onMoreTabSelect = (key: string) => {
     emits('update:modelValue', key)
 }
@@ -209,21 +283,36 @@ const onDragEnd = (evt) => {
     }
 }
 
+let recomputeTimeout: any = null
+const recomputeDebounced = () => {
+    clearTimeout(recomputeTimeout)
+    recomputeTimeout = setTimeout(recomputeTabs, 16)   // 1帧
+}
+
+onMounted(() => {
+    initSortable()
+    nextTick(() => {
+        recomputeTabs()
+        if (tabBarRef.value) {
+            new ResizeObserver(recomputeDebounced).observe(tabBarRef.value)
+        }
+    })
+})
+onUnmounted(() => {
+    destroySortable()
+    clearTimeout(recomputeTimeout)
+})
+
+// tabs内容变化重新计算
+watch(() => props.tabs, recomputeTabs, { deep: true })
+// modelValue变化后也重新算tab排布（比如activeTab变化挤入）
+watch(() => props.modelValue, recomputeTabs, { immediate: true })
+
+// 监听 tab 拖拽和 tabs 变化
 watch(() => props.tabs.length, () => {
     destroySortable()
     nextTick(initSortable)
 })
-
-watch(() => props.tabs, recomputeTabs, { deep: true })
-
-onMounted(() => {
-    initSortable
-    nextTick(() => {
-        recomputeTabs()
-        new ResizeObserver(recomputeTabs).observe(tabBarRef.value!)
-    })
-})
-onUnmounted(destroySortable)
 </script>
 
 <style scoped lang="scss">

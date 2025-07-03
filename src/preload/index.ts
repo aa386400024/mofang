@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from 'electron'
+import { contextBridge, ipcRenderer, clipboard } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 
 // Custom APIs for renderer
@@ -13,6 +13,11 @@ const api = {
 
   // Tab 拆分
   detachTab: (tab: any) => ipcRenderer.send('tab:detach', tab),
+
+  clipboard: {
+    writeText: (text: string) => clipboard.writeText(text),
+    readText: () => clipboard.readText()
+  }
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to
