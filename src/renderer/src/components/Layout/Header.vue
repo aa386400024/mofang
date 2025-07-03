@@ -43,7 +43,7 @@
                 <CaretDownFilled
                     class="text-gray-600 arrow-transition"
                     style="font-size: 12px;"
-                    :class="{ open: userPopupOpen }"
+                    :class="{ open: userMenuVisible }"
                 />
             </div>
             <WinBtn icon="minus" @click="windowControl('min')" />
@@ -78,7 +78,6 @@ const aiTab = computed(() => ({
     cacheKey: 'ai-chat'
 }))
 
-const userPopupOpen = ref(false)
 const userMenuVisible = ref(false)
 const dropdownRef = ref<HTMLElement|null>(null)
 
