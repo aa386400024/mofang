@@ -117,11 +117,16 @@ const suffixSlot = null
 watch(
     () => props.value,
     val => {
+        console.log('val', val)
         if (val !== inputValue.value) {
             inputValue.value = val || ''
         }
     }
 )
+
+watch(inputValue, val => { 
+    emits('update:value', val)
+})
 </script>
 
 <style scoped lang="scss">

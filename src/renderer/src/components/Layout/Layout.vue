@@ -1,6 +1,9 @@
 <template>
     <div class="flex flex-col h-screen w-screen">
-        <Header @new-local-tab="handleNewLocalTab" />
+        <Header 
+            @new-local-tab="handleNewLocalTab" 
+            @switch-tab="handleSwitchTab"
+        />
         <AddressBar
             :value="addressBarValue"
             @update:value="onUpdateAddressBarValue"
@@ -27,32 +30,53 @@ const refreshTabs = async () => {
     const { tabs: tlist, active } = await window.api.tab.getTabList()
     tabs.value = tlist
     activeTab.value = active
-    addressBarValue.value = tabs.value.find((t) => t.id === active)?.inputDraft ?? ''
+
+    // 同步地址栏内容
+    const activeTabObj = tabs.value.find((t) => t.id === active)
+    if (activeTabObj) {
+        addressBarValue.value = activeTabObj.inputDraft ?? ''
+    } else {
+        addressBarValue.value = ''
+    }
+}
+
+const handleSwitchTab = async (id: number) => { 
+    await window.api.tab.switchTab(id)
+    await refreshTabs()
 }
 
 const handleNewLocalTab = async (insertAfterId?: number) => {
+    console.log('addressBarValue前', addressBarValue.value)
     let tab
     if (typeof insertAfterId === 'number') {
         tab = await window.api.tab.insertTabAfter(insertAfterId, {
             type: 'local-page',
             pageName: 'aiChat',
-            pageProps: { 
+            pageProps: {
                 title: '新本地页',
                 tabKey: `${Date.now()}-${Math.random()}`
             }
         })
     } else {
-        tab = await window.api.tab.newLocalTab('aiChat', { title: '新本地页', tabKey: `${Date.now()}-${Math.random()}` })
+        tab = await window.api.tab.newLocalTab('aiChat', {
+            title: '新本地页',
+            tabKey: `${Date.now()}-${Math.random()}`
+        })
     }
     await refreshTabs()
+    console.log('addressBarValue', addressBarValue.value)
     // 新建tab inputDraft置空，地址栏也清空
-    const t = tabs.value.find((t) => t.id === tab?.id)
-    if (t) t.inputDraft = ''
-    addressBarValue.value = ''
+    const t = tabs.value.find((t) => t.id === tab.id)
+    if (t) {
+        console.log('t', t)
+        t.inputDraft = ''
+        addressBarValue.value = ''  
+    }
 }
 
 const onUpdateAddressBarValue = (val: string) => {
     if (currTab.value) currTab.value.inputDraft = val
+    console.log('onUpdateAddressBarValue', val)
     addressBarValue.value = val
 }
 const onAddressBarEnter = async (val: string) => {

@@ -77,14 +77,14 @@ const tabStyle = computed(() => {
 
 let sortable: Sortable | null = null
 
-const emit = defineEmits(['new-local-tab'])
+const emit = defineEmits(['new-local-tab', 'switch-tab'])
 
 const triggerNewTab = (insertAfterId?: number) => {
     emit('new-local-tab', insertAfterId)
 }
 const newTab = () => triggerNewTab()
 const switchTab = async (id: number) => {
-    await window.api.tab.switchTab(id)
+    emit('switch-tab', id)
 }
 const closeTab = async (id: number) => {
     await window.api.tab.closeTab(id)

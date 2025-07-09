@@ -24,7 +24,8 @@
     >
         <div class="flex items-center h-full flex-1 min-w-0 overflow-hidden pr-16">
             <TabBar 
-                class="no-drag" 
+                class="no-drag"
+                @switch-tab="(...args) => $emit('switch-tab', ...args)"
                 @new-local-tab="(...args) => $emit('new-local-tab', ...args)"/>
         </div>
         <div class="flex items-center gap-2 ml-2 no-drag" v-no-contextmenu>
@@ -63,6 +64,8 @@ import { WinBtn, TabBar } from './index'
 import { PlusOutlined, CaretUpFilled, CaretDownFilled } from '@ant-design/icons-vue'
 import { useRouter } from 'vue-router'
 import avatar from '@renderer/assets/img/avatar.png'
+
+defineEmits(['new-local-tab', 'switch-tab'])
 
 const tabsStore = useTabsStore()
 const router = useRouter()
