@@ -54,9 +54,8 @@
 import { ref, computed, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { CloseOutlined, PlusOutlined, GlobalOutlined } from '@ant-design/icons-vue'
 import Sortable from 'sortablejs'
-const tabs = ref<{ id: number; url: string; title?: string; favicon?: string }[]>([])
+const tabs = ref<TabListItem[]>([])
 const activeTab = ref<number>(-1)
-const defaultUrl = 'https://www.baidu.com'
 const tabBarRef = ref<HTMLElement | null>(null)
 const MIN_TAB_WIDTH = 64
 const MAX_TAB_WIDTH = 192
@@ -77,10 +76,13 @@ const tabStyle = computed(() => {
 })
 
 let sortable: Sortable | null = null
-const newTab = async () => {
-    await window.api.tab.newTab(defaultUrl)
-    await refresh()
+
+const emit = defineEmits(['new-local-tab'])
+
+const triggerNewTab = (insertAfterId?: number) => {
+    emit('new-local-tab', insertAfterId)
 }
+const newTab = () => triggerNewTab()
 const switchTab = async (id: number) => {
     await window.api.tab.switchTab(id)
 }
@@ -103,7 +105,7 @@ const onTabContextMenu = (e: MouseEvent, tab: (typeof tabs.value)[0]) => {
     const index = tabs.value.findIndex((t) => t.id === tab.id)
     window.api.tab.showTabContextMenu({
         id: tab.id,
-        url: tab.url,
+        url: tab.url ?? '',
         title: tab.title,
         x: e.x,
         y: e.y,
@@ -127,13 +129,13 @@ const onTabMenuAction = async (e: any, { type, tab }: { type: string; tab: any }
         }
         case 'newRight': {
             // 新建tab插入到当前tab右侧
-            await window.api.tab.insertTabAfter?.(tab.id, defaultUrl) // 需要你主进程实现tab:insert类似API, 没有则跳过
+            triggerNewTab(tab.id)
             await refresh()
             break
         }
         case 'reload': {
             const t = tabs.value.find((t) => t.id === tab.id)
-            if (t) window.api.tab.gotoTabUrl(tab.id, t.url)
+            if (t) window.api.tab.gotoTabUrl(tab.id, t.url ?? '')
             break
         }
         case 'copy': {

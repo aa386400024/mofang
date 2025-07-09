@@ -1,8 +1,10 @@
 import { ipcMain, BrowserWindow, Menu, MenuItem, screen } from 'electron'
-import { createWindow, mainWindow, tabWindows, createMainTab, closeTab, setActiveTab, tabs, activeTabId, moveTab } from './window'
-declare global {
-    var userPopupWin: BrowserWindow | null | undefined;
-}
+import {
+    createWindow, mainWindow, tabWindows,
+    createWebTab, createPluginTab, createLocalTab,
+    closeTab, setActiveTab, tabs, activeTabId, moveTab,
+    getTabList, buildProtocolUrl
+} from './window'
 export function setupIpcHandlers(mainWindow: BrowserWindow, tabWindows: Set<BrowserWindow>) {
     // 窗口最大化/还原状态
     ipcMain.handle('win:isMaximized', () => mainWindow?.isMaximized())
@@ -22,29 +24,33 @@ export function setupIpcHandlers(mainWindow: BrowserWindow, tabWindows: Set<Brow
     })
 
     ipcMain.handle('tab:get-list', () => {
-        return {
-            tabs: tabs.map(tab => {
-                return {
-                    id: tab.id,
-                    url: tab.url,
-                    title: tab.title,
-                    favicon: tab.favicon,
-                }
-            }),
-            active: activeTabId
-        }
+        return getTabList()
     })
 
     ipcMain.handle('tab:new', (e, url: string) => {
-        const tab = createMainTab(url)
+        const tab = createWebTab(url)
         tabs.push(tab)
         setActiveTab(tab.id)
-        return {
-            id: tab.id,
-            url: tab.url,
-            title: tab.title,
-            favicon: tab.favicon,
-        }
+        return tab
+    })
+
+    ipcMain.handle('tab:new-plugin', (e, url: string) => {
+        const tab = createPluginTab(url)
+        tabs.push(tab)
+        setActiveTab(tab.id)
+        return tab
+    })
+    ipcMain.handle('tab:new-local', (e, pageName: string, pageProps: any) => {
+        const tab = createLocalTab('local-page', pageName, pageProps)
+        tabs.push(tab)
+        setActiveTab(tab.id)
+        return tab
+    })
+    ipcMain.handle('tab:new-console', (e, pageName: string, pageProps: any) => {
+        const tab = createLocalTab('console', pageName, pageProps)
+        tabs.push(tab)
+        setActiveTab(tab.id)
+        return tab
     })
 
     ipcMain.handle('tab:switch', (e, tabId: number) => {
@@ -57,9 +63,12 @@ export function setupIpcHandlers(mainWindow: BrowserWindow, tabWindows: Set<Brow
             tabs: tabs.map((tab) => {
                 return {
                     id: tab.id,
+                    type: tab.type,
                     url: tab.url,
                     title: tab.title,
                     favicon: tab.favicon,
+                    pageName: tab.pageName,
+                    pageProps: tab.pageProps
                 }
             }),
             activeTabId,
@@ -68,7 +77,9 @@ export function setupIpcHandlers(mainWindow: BrowserWindow, tabWindows: Set<Brow
 
     ipcMain.handle('tab:goto', (e, tabId: number, url: string) => {
         const tab = tabs.find((tab) => tab.id === tabId)
-        if (tab) tab.view.webContents.loadURL(url)
+        if (tab && (tab.type === 'web' || tab.type === 'plugin') && tab.view) {
+            tab.view.webContents.loadURL(url)
+        }
     })
 
     ipcMain.handle('tab:move', (event, oldIndex: number, newIndex: number) => {
@@ -77,13 +88,64 @@ export function setupIpcHandlers(mainWindow: BrowserWindow, tabWindows: Set<Brow
         return {
             tabs: tabs.map(tab => ({
                 id: tab.id,
+                type: tab.type,
                 url: tab.url,
                 title: tab.title,
                 favicon: tab.favicon,
+                pageName: tab.pageName,
+                pageProps: tab.pageProps
             })),
             active: activeTabId
         }
     });
+
+    // 处理在指定标签页后插入新标签页的请求
+    ipcMain.handle('tab:insert-after', (event, afterTabId: number, info: any) => {
+        const idx = tabs.findIndex(t => t.id === afterTabId)
+        if (idx === -1) return
+        let tab: ReturnType<typeof createWebTab | typeof createLocalTab | typeof createPluginTab>
+        if (info.type === 'web') tab = createWebTab(info.url)
+        else if (info.type === 'plugin') tab = createPluginTab(info.url)
+        else if (info.type === 'console') tab = createLocalTab('console', info.pageName, info.pageProps)
+        else tab = createLocalTab('local-page', info.pageName, info.pageProps)
+        tabs.splice(idx + 1, 0, tab)
+        setActiveTab(tab.id)
+        return tab
+    })
+
+    ipcMain.handle('tab:replace', (e, tabId: number, info: InsertTabInfo) => {
+        const tab = tabs.find(t => t.id === tabId)
+        if (!tab) return;
+
+        // --- 通用:总是先移除view ---
+        if (tab.view) {
+            try { mainWindow!.removeBrowserView(tab.view) } catch { }
+            const wc = tab.view.webContents as any
+            if (wc && wc.destroy) wc.destroy()
+            tab.view = undefined
+        }
+
+        // --- 新内容类型分支 ---
+        if (info.type === 'web') {
+            const newTab = createWebTab(info.url)
+            Object.assign(tab, newTab, { id: tab.id })
+        } else if (info.type === 'plugin') {
+            const newTab = createPluginTab(info.url)
+            Object.assign(tab, newTab, { id: tab.id })
+        } else if (info.type === 'local-page' || info.type === 'console') {
+            tab.type = info.type
+            tab.pageName = info.pageName
+            tab.pageProps = info.pageProps
+            tab.title = info.pageProps?.title
+            tab.protocolUrl = info.protocolUrl || buildProtocolUrl(tab)
+            tab.url = undefined
+            tab.favicon = undefined
+            // 🔥!!! tab.view 必须置空，见上
+            // 🔥!!! nothing to do
+        }
+        setActiveTab(tab.id)
+        return tab
+    })
 
     // Tab右键菜单
     ipcMain.handle('show-tab-context-menu', (event, tabMenuInfo) => {
@@ -135,26 +197,5 @@ export function setupIpcHandlers(mainWindow: BrowserWindow, tabWindows: Set<Brow
         menu.popup({ window: win, x: tabMenuInfo.x, y: tabMenuInfo.y })
     })
 
-        // 处理在指定标签页后插入新标签页的请求
-    ipcMain.handle('tab:insert-after', (event, afterTabId: number, url: string) => {
-        // 查找指定ID的标签页索引
-        const idx = tabs.findIndex(t => t.id === afterTabId)
-        // 如果标签页不存在，则不执行后续操作
-        if (idx === -1) return
-        
-        // 创建新的标签页
-        const tab = createMainTab(url)
-        // 将新标签页插入到指定标签页之后
-        tabs.splice(idx + 1, 0, tab)
-        // 设置新标签页为活动标签页
-        setActiveTab(tab.id)
-        
-        // 返回新标签页的相关信息
-        return {
-            id: tab.id,
-            url: tab.url,
-            title: tab.title,
-            favicon: tab.favicon,
-        }
-    })
+
 }

@@ -41,12 +41,12 @@
             spellcheck="false" 
             class="flex-1 ml-w-0"
             :bordered="true"
-            @pressEnter="onPressEnter" 
-            @focus="onFocus" 
-            @blur="onBlur" 
             :suffix="suffixSlot" 
             :allow-clear="false" 
             :placeholder="placeholder" 
+            @pressEnter="onPressEnter" 
+            @focus="onFocus" 
+            @blur="onBlur"
         >
             <template #addonBefore>
                 <a-button 
@@ -96,26 +96,14 @@ const emits = defineEmits<{
     (e: 'forward'): void
     (e: 'reload'): void
     (e: 'toggle-favorite'): void
+    (e: 'address-enter', val: string): void
 }>()
 // 状态
 const inputValue = ref(props.value || '')
 const focusState = ref(false)
 const isFavorite = computed(() => Boolean(props.isFavorite))
-// 输入逻辑
-const isURL = (input: string): boolean =>
-    /^https?:\/\/.+\..+/.test(input) || /^[a-zA-Z0-9\-\_]+(\.[a-zA-Z]+)+/.test(input)
 const onPressEnter = () => {
-    const txt = inputValue.value.trim()
-    if (isURL(txt)) {
-        let url = /^(https?:)?\/\//.test(txt) ? txt : 'https://' + txt
-        emits('load-url', url)
-    } else if (txt) {
-        let q = encodeURIComponent(txt)
-        let searchUrl = `https://www.baidu.com/s?wd=${q}`
-        emits('search', searchUrl)
-        emits('load-url', searchUrl)
-    }
-    emits('update:value', inputValue.value)
+    emits('address-enter', inputValue.value)
 }
 const onFocus = () => { focusState.value = true }
 const onBlur = () => { focusState.value = false }

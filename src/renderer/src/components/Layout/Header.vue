@@ -23,7 +23,9 @@
         style="-webkit-app-region: drag"
     >
         <div class="flex items-center h-full flex-1 min-w-0 overflow-hidden pr-16">
-            <TabBar class="no-drag" />
+            <TabBar 
+                class="no-drag" 
+                @new-local-tab="(...args) => $emit('new-local-tab', ...args)"/>
         </div>
         <div class="flex items-center gap-2 ml-2 no-drag" v-no-contextmenu>
             <div

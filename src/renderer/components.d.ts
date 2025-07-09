@@ -16,6 +16,7 @@ declare module 'vue' {
     ATabPane: typeof import('ant-design-vue/es')['TabPane']
     ATabs: typeof import('ant-design-vue/es')['Tabs']
     copy: typeof import('./src/components/Layout/Header copy.vue')['default']
+    DynamicTabContent: typeof import('./src/components/Layout/DynamicTabContent.vue')['default']
     Header: typeof import('./src/components/Layout/Header.vue')['default']
     Layout: typeof import('./src/components/Layout/Layout.vue')['default']
     MoreTabs: typeof import('./src/components/pro-ui/pro-tabs/MoreTabs.vue')['default']
