@@ -17,6 +17,8 @@ declare global {
         title?: string
         favicon?: string
         view?: BrowserView
+        history?: string[]
+        currentHistoryIndex?: number
         pageName?: string // local-page/console等类型时：vue页面名
         pageProps?: Record<string, any> // 传递到页面的参数数据
         protocolUrl?: string // 插件类型时：插件协议地址

@@ -51,6 +51,15 @@ export function createWebTab(url: string = 'https://www.baidu.com'): TabInfo {
     })
     view.webContents.loadURL(url)
 
+    const tab: TabInfo = {
+        id: tabIdCounter++,
+        type: 'web',
+        url,
+        view,
+        history: [url],
+        currentHistoryIndex: 0,
+    }
+
     // 监听事件更新title/favicon等
     view.webContents.on('page-title-updated', (e, title) => {
         const tab = tabs.find(t => t.view === view)
@@ -69,7 +78,27 @@ export function createWebTab(url: string = 'https://www.baidu.com'): TabInfo {
         mainWindow?.webContents.send('tab:url-updated', { id: tab?.id, url })
     })
 
-    const tab: TabInfo = { id: tabIdCounter++, type: 'web', url, view }
+    // 历史 导航事件，通知前端
+    view.webContents.on("did-navigate", (e, url) => {
+        const tab = tabs.find(t => t.view === view)
+        if (tab) {
+            tab.url = url;
+            // 维护历史
+            if (!tab.history) tab.history = [];
+            // 只保留当前index之前的历史
+            if (typeof tab.currentHistoryIndex === 'number' && tab.history.length) {
+                tab.history = tab.history.slice(0, tab.currentHistoryIndex + 1);
+            }
+            tab.history.push(url);
+            tab.currentHistoryIndex = (tab.history.length - 1);
+
+            mainWindow?.webContents.send("tab:url-updated", { id: tab?.id, url });
+            // 通知历史变更
+            mainWindow?.webContents.send("tab:history-updated", { id: tab?.id, history: tab.history, currentIndex: tab.currentHistoryIndex });
+        }
+    })
+
+
     return tab
 }
 

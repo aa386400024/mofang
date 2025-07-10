@@ -2,6 +2,7 @@
     <div class="flex flex-col h-screen w-screen">
         <Header @new-local-tab="handleNewLocalTab" @switch-tab="handleSwitchTab" />
         <AddressBar
+            ref="addressBarRef"
             :value="addressBarValue"
             @update:value="onUpdateAddressBarValue"
             @address-enter="onAddressBarEnter"
@@ -21,6 +22,7 @@ import { ref, onMounted, computed } from 'vue'
 const tabs = ref<any[]>([])
 const activeTab = ref<number>(-1)
 const addressBarValue = ref<string>('')
+const addressBarRef = ref<HTMLInputElement>()
 
 const currTab = computed(() => tabs.value.find((t) => t.id === activeTab.value))
 const refreshTabs = async () => {
@@ -73,7 +75,7 @@ const handleNewLocalTab = async (insertAfterId?: number) => {
         })
     }
     await refreshTabs()
-    console.log('addressBarValue', addressBarValue.value)
+    addressBarRef.value?.focus?.()
     // 新建tab inputDraft置空，地址栏也清空
     const t = tabs.value.find((t) => t.id === tab.id)
     if (t) {

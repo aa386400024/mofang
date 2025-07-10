@@ -37,6 +37,7 @@
         <div class="w-2"></div>
         <!-- 地址栏输入框 -->
         <a-input
+            ref="inputRef"
             v-model:value="inputValue" 
             spellcheck="false" 
             class="flex-1 ml-w-0"
@@ -102,6 +103,17 @@ const emits = defineEmits<{
 const inputValue = ref(props.value || '')
 const focusState = ref(false)
 const isFavorite = computed(() => Boolean(props.isFavorite))
+const inputRef = ref<HTMLInputElement | null>(null)
+
+const focus = () => {
+    nextTick(() => {
+        inputRef.value?.focus?.()
+    })
+}
+
+defineExpose({
+    focus,
+})
 const onPressEnter = () => {
     emits('address-enter', inputValue.value)
 }

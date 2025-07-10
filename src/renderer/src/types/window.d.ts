@@ -53,6 +53,8 @@ declare global {
         pageProps?: any;    
         protocolUrl: string; // 协议url
         inputDraft?: string; // 输入框的缓存
+        history?: string[]
+        currentHistoryIndex?: number
     }
     interface Window {
         api: ApiInPreload;

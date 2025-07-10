@@ -148,8 +148,39 @@ export function setupIpcHandlers(mainWindow: BrowserWindow, tabWindows: Set<Brow
             // 🔥!!! tab.view 必须置空，见上
             // 🔥!!! nothing to do
         }
+
+        // 保持history一致（一般replace即新开页，history重置）
+        tab.history = [info.url ?? ''];
+        tab.currentHistoryIndex = 0;
         setActiveTab(tab.id)
         return tab
+    })
+
+    ipcMain.handle("tab:go-back", (e, tabId: number) => {
+        const tab = tabs.find(t => t.id === tabId)
+        if (!tab || !tab.view) return;
+        // 让webContents后退（以webContents为准）
+        if (tab.view.webContents.canGoBack()) {
+            tab.view.webContents.goBack();
+        }
+    })
+    ipcMain.handle("tab:go-forward", (e, tabId: number) => {
+        const tab = tabs.find(t => t.id === tabId)
+        if (!tab || !tab.view) return;
+        if (tab.view.webContents.canGoForward()) {
+            tab.view.webContents.goForward();
+        }
+    })
+    ipcMain.handle("tab:get-history", (e, tabId: number, limit: number = 10) => {
+        const tab = tabs.find(t => t.id === tabId)
+        if (!tab || !tab.history) return { history: [], current: -1 };
+        // 限制数量
+        const len = tab.history.length;
+        let start = Math.max(0, len - limit);
+        return {
+            history: tab.history.slice(start),
+            current: tab.currentHistoryIndex - start
+        }
     })
 
     // Tab右键菜单
