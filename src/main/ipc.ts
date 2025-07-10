@@ -113,6 +113,11 @@ export function setupIpcHandlers(mainWindow: BrowserWindow, tabWindows: Set<Brow
         return tab
     })
 
+    ipcMain.handle('tab:set-input-draft', (e, tabId: number, draft: string) => {
+        const tab = tabs.find(t => t.id === tabId)
+        if (tab) tab.inputDraft = draft // 保存在tab对象结构里
+    })
+
     ipcMain.handle('tab:replace', (e, tabId: number, info: InsertTabInfo) => {
         const tab = tabs.find(t => t.id === tabId)
         if (!tab) return;
@@ -137,7 +142,7 @@ export function setupIpcHandlers(mainWindow: BrowserWindow, tabWindows: Set<Brow
             tab.pageName = info.pageName
             tab.pageProps = info.pageProps
             tab.title = info.pageProps?.title
-            tab.protocolUrl = info.protocolUrl || buildProtocolUrl(tab)
+            tab.protocolUrl = buildProtocolUrl(tab)
             tab.url = undefined
             tab.favicon = undefined
             // 🔥!!! tab.view 必须置空，见上

@@ -112,7 +112,7 @@ const onBack = () => emits('back')
 const onForward = () => emits('forward')
 const onReload = () => emits('reload')
 const onToggleFavorite = () => emits('toggle-favorite')
-const placeholder = computed(() => props.placeholder || '请输入网址或搜索内容')
+const placeholder = computed(() => props.placeholder || '在豆包中搜索，或打开一个网址')
 const suffixSlot = null
 watch(
     () => props.value,

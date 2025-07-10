@@ -4,7 +4,7 @@ import { setupRouterGuard } from './guards'
 
 // 追加你的 redirect（手动加在自动生成 routes 前面即可）
 const routes = [
-    // { path: '/', redirect: '/home' },
+    { path: '/', redirect: '/home' },
     ...generatedRoutes
 ]
 

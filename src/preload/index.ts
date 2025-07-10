@@ -23,7 +23,7 @@ const tabApi = {
     showTabContextMenu: (tabMenuInfo: any) => ipcRenderer.invoke('show-tab-context-menu', tabMenuInfo),
     tabMenuAction: (cb: (e: any, data: { type: string, tab: any }) => void) => ipcRenderer.on('tab-menu-action', cb),
     offTabMenuAction: (cb: any) => ipcRenderer.off('tab-menu-action', cb),
-
+    setInputDraft: (tabId: number, draft: string) => ipcRenderer.invoke('tab:set-input-draft', tabId, draft),
 }
 
 // Custom APIs for renderer

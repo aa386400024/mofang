@@ -1,9 +1,6 @@
 <template>
     <div class="flex flex-col h-screen w-screen">
-        <Header 
-            @new-local-tab="handleNewLocalTab" 
-            @switch-tab="handleSwitchTab"
-        />
+        <Header @new-local-tab="handleNewLocalTab" @switch-tab="handleSwitchTab" />
         <AddressBar
             :value="addressBarValue"
             @update:value="onUpdateAddressBarValue"
@@ -28,19 +25,31 @@ const addressBarValue = ref<string>('')
 const currTab = computed(() => tabs.value.find((t) => t.id === activeTab.value))
 const refreshTabs = async () => {
     const { tabs: tlist, active } = await window.api.tab.getTabList()
-    tabs.value = tlist
+    // 每个tab初始化inputDraft为空字符串（代表“用户输入草稿”）
+    tabs.value = tlist.map((tab) => ({
+        ...tab,
+        inputDraft: typeof tab.inputDraft === 'string' ? tab.inputDraft : ''
+    }))
     activeTab.value = active
 
-    // 同步地址栏内容
+    // 选当前活跃tab
     const activeTabObj = tabs.value.find((t) => t.id === active)
-    if (activeTabObj) {
-        addressBarValue.value = activeTabObj.inputDraft ?? ''
+
+    if (!activeTabObj) {
+        addressBarValue.value = ''
+    } else if (activeTabObj.inputDraft) {
+        // 用户有输入草稿，优先展示
+        addressBarValue.value = activeTabObj.inputDraft
+    } else if (activeTabObj.type === 'web' && activeTabObj.url) {
+        // 只针对web页，初始展示url
+        addressBarValue.value = activeTabObj.url
     } else {
+        // 其它类型（比如local-page/console/plugin），没输入过就空
         addressBarValue.value = ''
     }
 }
 
-const handleSwitchTab = async (id: number) => { 
+const handleSwitchTab = async (id: number) => {
     await window.api.tab.switchTab(id)
     await refreshTabs()
 }
@@ -70,13 +79,15 @@ const handleNewLocalTab = async (insertAfterId?: number) => {
     if (t) {
         console.log('t', t)
         t.inputDraft = ''
-        addressBarValue.value = ''  
+        addressBarValue.value = ''
     }
 }
 
 const onUpdateAddressBarValue = (val: string) => {
-    if (currTab.value) currTab.value.inputDraft = val
-    console.log('onUpdateAddressBarValue', val)
+    if (currTab.value) {
+        currTab.value.inputDraft = val
+        window.api.tab.setInputDraft(currTab.value.id, val)
+    }
     addressBarValue.value = val
 }
 const onAddressBarEnter = async (val: string) => {

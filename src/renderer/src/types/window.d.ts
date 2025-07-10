@@ -14,6 +14,7 @@ interface TabApi {
     gotoTabUrl: (id: number, url: string) => Promise<any>
     moveTab: (oldIndex: number, newIndex: number) => Promise<any>
     replaceTab: (tabId: number, info: InsertTabInfo) => Promise<any>;
+    setInputDraft: (tabId: number, draft: string) => Promise<void>;
     onTitleUpdated: (cb: (e: any, data: { id: number; title: string }) => void) => void
     onFaviconUpdated: (cb: (e: any, data: { id: number; favicon: string }) => void) => void
     onUrlUpdated: (cb: (e: any, data: { id: number; url: string }) => void) => void
@@ -47,10 +48,11 @@ declare global {
         type: TabType;
         url?: string;
         title?: string;
-        favicon?: string;
-        pageName?: string;
-        pageProps?: any;
-        protocolUrl: string;
+        favicon?: string;  
+        pageName?: string;  
+        pageProps?: any;    
+        protocolUrl: string; // 协议url
+        inputDraft?: string; // 输入框的缓存
     }
     interface Window {
         api: ApiInPreload;
