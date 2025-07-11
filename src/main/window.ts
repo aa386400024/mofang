@@ -2,6 +2,7 @@ import { BrowserWindow, BrowserView, app } from 'electron'
 import { join } from 'path'
 import icon from '../../resources/icon.png?asset'
 import { is } from '@electron-toolkit/utils'
+import { Tab } from 'ant-design-vue/es/tabs/src/interface'
 
 export let mainWindow: BrowserWindow | null = null
 export let tabWindows: Set<BrowserWindow> = new Set()
@@ -40,6 +41,47 @@ function updateActiveTabBounds() {
     }
 }
 
+export function jumpToHistory(tab: TabInfo, index: number) {
+    tab.isHistoryJump = true;
+    const entry = tab.history[index]
+    if (!entry) return
+    // 切类型/内容
+    if (entry.type === 'web') {
+        // 保留/复用view，切url
+        if (!tab.view) tab.view = new BrowserView({/*...*/ })
+        mainWindow!.addBrowserView(tab.view)
+        tab.view.webContents.loadURL(entry.url)
+        tab.type = 'web'
+        tab.url = entry.url
+        tab.pageName = undefined
+        tab.pageProps = undefined
+        tab.title = undefined; // 后续pagetitle事件里会更新
+        tab.favicon = undefined
+    } else if (entry.type === 'local-page' || entry.type === 'console') {
+        // 移除webview/切到本地内容
+        if (tab.view) {
+            try { mainWindow!.removeBrowserView(tab.view) } catch { }
+            const wc = tab.view.webContents as any
+            if (wc && wc.destroy) wc.destroy()
+            tab.view = undefined
+        }
+        tab.type = entry.type
+        tab.pageName = entry.pageName
+        tab.pageProps = entry.pageProps
+        tab.url = undefined
+        tab.title = entry.pageProps?.title
+        tab.favicon = undefined
+    }
+    tab.currentHistoryIndex = index
+    // 发事件通知renderer
+    mainWindow?.webContents.send('tab:history-updated', {
+        id: tab.id,
+        history: tab.history,
+        current: tab.currentHistoryIndex,
+    })
+    mainWindow?.webContents.send('tab:url-updated', { id: tab.id, url: tab.url })
+}
+
 export function createWebTab(url: string = 'https://www.baidu.com'): TabInfo {
     const view = new BrowserView({
         webPreferences: {
@@ -51,13 +93,18 @@ export function createWebTab(url: string = 'https://www.baidu.com'): TabInfo {
     })
     view.webContents.loadURL(url)
 
+    const historyEntery: TabHistoryEntry = { type: 'web', url }
     const tab: TabInfo = {
         id: tabIdCounter++,
         type: 'web',
         url,
         view,
-        history: [url],
+        history: [historyEntery],
         currentHistoryIndex: 0,
+        title: undefined,
+        favicon: undefined,
+        inputDraft: '',
+        isHistoryJump: false,
     }
 
     // 监听事件更新title/favicon等
@@ -71,33 +118,31 @@ export function createWebTab(url: string = 'https://www.baidu.com'): TabInfo {
         if (tab) tab.favicon = favicons[0]
         mainWindow?.webContents.send('tab:favicon-updated', { id: tab?.id, favicon: favicons[0] })
     })
-    // url导航事件，通知前端
-    view.webContents.on('did-navigate', (e, url) => {
-        const tab = tabs.find(t => t.view === view)
-        if (tab) tab.url = url
-        mainWindow?.webContents.send('tab:url-updated', { id: tab?.id, url })
-    })
 
     // 历史 导航事件，通知前端
-    view.webContents.on("did-navigate", (e, url) => {
-        const tab = tabs.find(t => t.view === view)
-        if (tab) {
-            tab.url = url;
-            // 维护历史
-            if (!tab.history) tab.history = [];
-            // 只保留当前index之前的历史
-            if (typeof tab.currentHistoryIndex === 'number' && tab.history.length) {
-                tab.history = tab.history.slice(0, tab.currentHistoryIndex + 1);
-            }
-            tab.history.push(url);
-            tab.currentHistoryIndex = (tab.history.length - 1);
-
-            mainWindow?.webContents.send("tab:url-updated", { id: tab?.id, url });
-            // 通知历史变更
-            mainWindow?.webContents.send("tab:history-updated", { id: tab?.id, history: tab.history, currentIndex: tab.currentHistoryIndex });
+    view.webContents.on("did-navigate", (e, realUrl) => {
+        // 是否是通过jumpToHistory触发的页面导航？
+        if (tab.isHistoryJump) {
+            tab.isHistoryJump = false;
+            tab.url = realUrl;
+            mainWindow?.webContents.send('tab:url-updated', { id: tab.id, url: realUrl });
+            return;
         }
-    })
-
+        // 新输入/普通跳转才会走下面
+        tab.history = tab.history.slice(0, tab.currentHistoryIndex + 1);
+        tab.history.push({
+            type: 'web',
+            url: realUrl,
+            title: tab.title,
+            favicon: tab.favicon
+        });
+        tab.currentHistoryIndex++;
+        mainWindow?.webContents.send('tab:history-updated', {
+            id: tab.id, history: tab.history, current: tab.currentHistoryIndex
+        });
+        tab.url = realUrl;
+        mainWindow?.webContents.send('tab:url-updated', { id: tab.id, url: realUrl });
+    });
 
     return tab
 }
@@ -126,28 +171,29 @@ export function createPluginTab(url: string): TabInfo {
             mainWindow?.webContents.send('tab:favicon-updated', { id: tab.id, favicon: favicons[0] })
         }
     })
-    view.webContents.on('did-navigate', (e, url) => {
-        const tab = tabs.find(t => t.view === view)
-        if (tab) {
-            tab.url = url
-            mainWindow?.webContents.send('tab:url-updated', { id: tab.id, url })
-        }
-    })
     return {
         id: tabIdCounter++,
         type: 'plugin',
         url,
-        view
+        view,
+        history: [{ type: 'plugin', url }],
+        currentHistoryIndex: 0,
+        title: '',
+        favicon: '',
+        inputDraft: '',
     }
 }
 
 export function createLocalTab(type: 'local-page' | 'console', pageName: string, pageProps?: any): TabInfo {
+    const historyEntery: TabHistoryEntry = { type, pageName, pageProps }
     return {
         id: tabIdCounter++,
         type,
         pageName,
         pageProps,
         title: pageProps?.title,
+        history: [historyEntery],
+        currentHistoryIndex: 0,
     }
 }
 

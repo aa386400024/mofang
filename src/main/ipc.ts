@@ -3,7 +3,7 @@ import {
     createWindow, mainWindow, tabWindows,
     createWebTab, createPluginTab, createLocalTab,
     closeTab, setActiveTab, tabs, activeTabId, moveTab,
-    getTabList, buildProtocolUrl
+    getTabList, buildProtocolUrl, jumpToHistory
 } from './window'
 export function setupIpcHandlers(mainWindow: BrowserWindow, tabWindows: Set<BrowserWindow>) {
     // 窗口最大化/还原状态
@@ -156,30 +156,48 @@ export function setupIpcHandlers(mainWindow: BrowserWindow, tabWindows: Set<Brow
         return tab
     })
 
-    ipcMain.handle("tab:go-back", (e, tabId: number) => {
-        const tab = tabs.find(t => t.id === tabId)
-        if (!tab || !tab.view) return;
-        // 让webContents后退（以webContents为准）
-        if (tab.view.webContents.canGoBack()) {
-            tab.view.webContents.goBack();
-        }
+    ipcMain.handle('tab:goto-or-replace', (e, tabId: number, entry: TabHistoryEntry) => {
+        const tab = tabs.find(tab => tab.id === tabId)
+        if (!tab) return
+        const now = tab.currentHistoryIndex
+        // 截断当前index后所有历史
+        tab.history = tab.history.slice(0, now + 1)
+        tab.history.push(entry) // 新页
+        const idx = tab.history.length - 1
+        jumpToHistory(tab, idx)
     })
-    ipcMain.handle("tab:go-forward", (e, tabId: number) => {
+
+    ipcMain.handle('tab:go-back', (e, tabId: number) => {
         const tab = tabs.find(t => t.id === tabId)
-        if (!tab || !tab.view) return;
-        if (tab.view.webContents.canGoForward()) {
-            tab.view.webContents.goForward();
-        }
+        if (!tab || tab.currentHistoryIndex <= 0) return
+        jumpToHistory(tab, tab.currentHistoryIndex - 1)
+        setActiveTab(tab.id)
     })
-    ipcMain.handle("tab:get-history", (e, tabId: number, limit: number = 10) => {
+
+    ipcMain.handle('tab:go-forward', (e, tabId: number) => {
         const tab = tabs.find(t => t.id === tabId)
-        if (!tab || !tab.history) return { history: [], current: -1 };
-        // 限制数量
-        const len = tab.history.length;
-        let start = Math.max(0, len - limit);
+        if (!tab || tab.currentHistoryIndex >= tab.history.length - 1) return
+        jumpToHistory(tab, tab.currentHistoryIndex + 1)
+        setActiveTab(tab.id)
+    })
+
+    // 弹窗历史、索引跳转
+    ipcMain.handle('tab:goto-history-index', (e, tabId: number, index: number) => {
+        const tab = tabs.find(t => t.id === tabId)
+        if (!tab) return
+        jumpToHistory(tab, index)
+        setActiveTab(tab.id)
+    })
+
+    // 获取历史
+    ipcMain.handle('tab:get-history', (e, tabId: number, limit = 10) => {
+        const tab = tabs.find(t => t.id === tabId)
+        if (!tab || !tab.history) return { history: [], current: -1 }
+        const len = tab.history.length
+        let start = Math.max(0, len - limit)
         return {
             history: tab.history.slice(start),
-            current: tab.currentHistoryIndex - start
+            current: (tab.currentHistoryIndex ?? 0) - start
         }
     })
 

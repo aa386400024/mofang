@@ -24,6 +24,13 @@ const tabApi = {
     tabMenuAction: (cb: (e: any, data: { type: string, tab: any }) => void) => ipcRenderer.on('tab-menu-action', cb),
     offTabMenuAction: (cb: any) => ipcRenderer.off('tab-menu-action', cb),
     setInputDraft: (tabId: number, draft: string) => ipcRenderer.invoke('tab:set-input-draft', tabId, draft),
+
+    gotoOrReplace: (tabId: number, entry) => ipcRenderer.invoke('tab:goto-or-replace', tabId, entry),
+    goBack: (id: number) => ipcRenderer.invoke("tab:go-back", id),
+    goForward: (id: number) => ipcRenderer.invoke("tab:go-forward", id),
+    getHistory: (tabId: number, limit: number = 10) => ipcRenderer.invoke("tab:get-history", tabId, limit),
+    onHistoryUpdated: (cb: (e: any, data: any) => void) => ipcRenderer.on("tab:history-updated", cb),
+    gotoHistoryIndex: (tabId: number, index: number) => ipcRenderer.invoke('tab:goto-history-index', tabId, index),
 }
 
 // Custom APIs for renderer

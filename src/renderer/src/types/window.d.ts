@@ -1,3 +1,12 @@
+export type TabHistoryEntry = {
+    type: TabType
+    url?: string
+    pageName?: string
+    pageProps?: any
+    title?: string
+    favicon?: string
+}
+
 export type InsertTabInfo =
     | { type: 'web'; url: string }
     | { type: 'plugin'; url: string }
@@ -15,6 +24,11 @@ interface TabApi {
     moveTab: (oldIndex: number, newIndex: number) => Promise<any>
     replaceTab: (tabId: number, info: InsertTabInfo) => Promise<any>;
     setInputDraft: (tabId: number, draft: string) => Promise<void>;
+    gotoOrReplace: (tabId: number, entry: TabHistoryEntry) => Promise<void>;
+    goBack: (tabId: number) => Promise<void>;
+    goForward: (tabId: number) => Promise<void>;
+    getHistory: (tabId: number, limit?: number) => Promise<{ history: TabHistoryEntry[]; current: number }>;
+    gotoHistoryIndex: (tabId: number, index: number) => Promise<void>;
     onTitleUpdated: (cb: (e: any, data: { id: number; title: string }) => void) => void
     onFaviconUpdated: (cb: (e: any, data: { id: number; favicon: string }) => void) => void
     onUrlUpdated: (cb: (e: any, data: { id: number; url: string }) => void) => void
@@ -24,6 +38,7 @@ interface TabApi {
     insertTabAfter: (afterTabId: number, info: InsertTabInfo) => Promise<any>
     tabMenuAction: (cb: (e: any, data: { type: string; tab: any }) => void) => void
     offTabMenuAction: (cb: (e: any, data: { type: string; tab: any }) => void) => void
+    onHistoryUpdated: (cb: (e: any, data: { id: number; history: TabHistoryEntry[]; current: number }) => void) => void;
 }
 
 interface ApiInPreload {
@@ -48,13 +63,13 @@ declare global {
         type: TabType;
         url?: string;
         title?: string;
-        favicon?: string;  
-        pageName?: string;  
-        pageProps?: any;    
+        favicon?: string;
+        pageName?: string;
+        pageProps?: any;
         protocolUrl: string; // 协议url
         inputDraft?: string; // 输入框的缓存
-        history?: string[]
-        currentHistoryIndex?: number
+        history: TabHistoryEntry[];         // 必填，混合历史
+        currentHistoryIndex: number;        // 必填
     }
     interface Window {
         api: ApiInPreload;
